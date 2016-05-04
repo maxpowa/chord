@@ -4,7 +4,7 @@ from cord.client import Client
 
 if __name__ == "__main__":
     cli = Client()
-    moot = cli.create('maxpowa1@gmail.com', 'notpass')
+    moot = cli.create('maxpowa1@gmail.com', '')
 
     def done(ignored):
         print('closing client')

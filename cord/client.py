@@ -2,14 +2,15 @@ import sys
 
 from twisted.python import log
 from twisted.internet import defer, ssl, reactor
+from twisted.internet.endpoints import SSL4ClientEndpoint, TCP4ClientEndpoint
 
 log.startLogging(sys.stdout)
 
-from cord.protocol import DiscordClientFactory
+from cord.protocol import DiscordClientFactory, EventHandler
 from cord import util
 from cord.errors import GatewayError, HTTPError, LoginError, WSReconnect, WSError
 
-class Client(object):
+class Client(EventHandler):
 
     def __init__(self, reactor=None, token=None):
         if reactor is None:
@@ -25,7 +26,7 @@ class Client(object):
 
     def fetch_token(self, email=None, password=None):
         if email is None or password is None:
-            raise ValueError('Email and password must be specified to fetch token.')
+            raise LoginError('Email and password must be specified to fetch token.')
         return util.get_token(self.reactor, email, password)
 
     def set_token(self, token):
@@ -43,8 +44,7 @@ class Client(object):
     def create(self, email, password, reactor=None):
         self.reactor = self.reactor if reactor is None else reactor
 
-        self.deferred = defer.succeed(email)
-        self.deferred.addCallback(self.fetch_token, password)
+        self.deferred = self.fetch_token(email, password)
         self.deferred.addCallback(self.set_token)
         self.deferred.addCallback(self.fetch_gateway)
         self.deferred.addCallback(self.set_gateway)
@@ -55,6 +55,7 @@ class Client(object):
             print(str(failure.value))
 
         self.deferred.addErrback(handle_ws_error)
+        self.deferred.addErrback(self.handle_error)
 
         return self.reactor
 
@@ -64,7 +65,7 @@ class Client(object):
 
     def _connect(self):
         if self.token is None or self.token == '':
-            raise ValueError('Invalid token, try using fetch_token first.')
+            raise LoginError('Invalid token, try using fetch_token first.')
 
         self.factory = DiscordClientFactory(self.gateway, reactor=self.reactor)
         self.factory.token = self.token
@@ -75,16 +76,31 @@ class Client(object):
         self.factory.deferred.addErrback(handle_reconnect)
 
         if self.factory.isSecure:
-            self.reactor.connectSSL(self.factory.host,
-                                    self.factory.port,
-                                    self.factory,
-                                    ssl.ClientContextFactory())
+            self.endpoint = SSL4ClientEndpoint(self.reactor,
+                                               self.factory.host,
+                                               self.factory.port,
+                                               ssl.ClientContextFactory())
         else:
-            self.reactor.connectTCP(factory.host,
-                                    factory.port,
-                                    factory)
+            self.endpoint = TCP4ClientEndpoint(self.reactor,
+                                               self.factory.host,
+                                               self.factory.port)
+        d = self.endpoint.connect(self.factory)
+        d.addCallback(self.set_protocol)
         return self.factory.deferred
 
+    def set_protocol(self, protocol):
+        self._protocol = protocol
+        self._protocol.add_event_handler(self)
+
+    def handle_event(self, protocol, event, data=None):
+        parser = 'parse_' + event.lower()
+
+        try:
+            func = getattr(self, parser)
+        except AttributeError:
+            print('Unhandled event {}'.format(event))
+        else:
+            func(data)
+
     def handle_error(self, failure):
-        #failure.trap(GatewayError, HTTPError, LoginError)
         print(str(failure.value))

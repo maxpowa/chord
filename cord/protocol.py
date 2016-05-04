@@ -1,3 +1,26 @@
+# COPYRIGHT (c) 2016 Max Gurela
+#
+# MIT License
+#
+# Permission is hereby granted, free of charge, to any person obtaining
+# a copy of this software and associated documentation files (the
+# "Software"), to deal in the Software without restriction, including
+# without limitation the rights to use, copy, modify, merge, publish,
+# distribute, sublicense, and/or sell copies of the Software, and to
+# permit persons to whom the Software is furnished to do so, subject to
+# the following conditions:
+#
+# The above copyright notice and this permission notice shall be
+# included in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+# LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+# WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
 from __future__ import unicode_literals
 
 from autobahn.twisted.websocket import WebSocketClientProtocol, \
@@ -15,6 +38,11 @@ from errors import WSError, WSReconnect
 from util import get_gateway, get_token, __user_agent__
 
 
+class EventHandler(object):
+    def handle_event(self, protocol, event, data):
+        raise NotImplementedError('handle_event not implemented in client')
+
+
 class DiscordClientProtocol(WebSocketClientProtocol):
     DISPATCH           = 0
     HEARTBEAT          = 1
@@ -27,15 +55,16 @@ class DiscordClientProtocol(WebSocketClientProtocol):
     REQUEST_MEMBERS    = 8
     INVALIDATE_SESSION = 9
 
+    _event_handlers = []
     _ka_task = None
     sequence = 0
     session_id = None
 
     def onConnect(self, response):
-        print("Server connected: {0}".format(response.peer))
+        print("Connecting to Discord server: {0}".format(response.peer))
 
     def onOpen(self):
-        print("WebSocket connection open.")
+        print("Discord connection opened")
         self.identify()
 
     def identify(self):
@@ -98,6 +127,9 @@ class DiscordClientProtocol(WebSocketClientProtocol):
             self._ka_task = task.LoopingCall(self.keepAlive)
             self._ka_task.start(interval)
 
+        for handler in self._event_handlers:
+            handler.handle_event(self, event, msg)
+
     def keepAlive(self):
         self.sendMessage(json.dumps({
             'op': self.HEARTBEAT,
@@ -115,7 +147,12 @@ class DiscordClientProtocol(WebSocketClientProtocol):
         if wasClean:
             self.factory.deferred.callback(None)
         else:
-            self.factory.deferred.errback(WSError("WebSocket connection closed: {0} {1}".format(code, reason)))
+            self.factory.deferred.errback(WSError("Discord connection closed: {0} {1}".format(code, reason)))
+
+    def add_event_handler(self, handler):
+        if not isinstance(handler, EventHandler):
+            raise ValueError('Invalid event handler')
+        self._event_handlers.append(handler)
 
 
 class DiscordClientFactory(WebSocketClientFactory):
