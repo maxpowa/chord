@@ -16,15 +16,13 @@ if __name__ == "__main__":
         print(str(failure.value))
 
     def create_client(gateway, token):
-        d = defer.Deferred()
         factory = DiscordClientFactory(gateway, reactor=reactor)
         factory.token = token
-        factory.d = d
         if factory.isSecure:
             reactor.connectSSL(factory.host, factory.port, factory, ssl.ClientContextFactory())
         else:
             reactor.connectTCP(factory.host, factory.port, factory)
-        return d
+        return factory.deferred
 
     def got_gateway(gateway, token):
         print(repr([gateway, token]))
@@ -35,7 +33,7 @@ if __name__ == "__main__":
         d.addCallback(got_gateway, token)
         return d
 
-    d = get_token(reactor, 'maxpowa1@gmail.com', '#notactuallymypassword#')
+    d = get_token(reactor, 'maxpowa1@gmail.com', 'notpass')
     d.addCallback(got_token)
     d.addErrback(error)
 

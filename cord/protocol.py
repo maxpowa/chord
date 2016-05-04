@@ -3,14 +3,14 @@ from __future__ import unicode_literals
 from autobahn.twisted.websocket import WebSocketClientProtocol, \
     WebSocketClientFactory
 
-from twisted.internet import task
+from twisted.internet import defer, task
 
 import random
 import json
 import sys
 import zlib
 
-from errors import WSError
+from errors import WSError, WSReconnect
 
 from util import get_gateway, get_token, __user_agent__
 
@@ -61,9 +61,9 @@ class DiscordClientProtocol(WebSocketClientProtocol):
         if isBinary:
             payload = zlib.decompress(payload, 15, 10490000) # This is 10 MiB
 
-        print('RECV: {}'.format(payload.decode('utf8')))
-
         payload = payload.decode('utf8')
+
+        print('RECV: {}'.format(payload))
 
         msg = json.loads(payload)
 
@@ -76,7 +76,7 @@ class DiscordClientProtocol(WebSocketClientProtocol):
         if op == self.RECONNECT:
             print('Got RECONNECT')
             self.dropConnection()
-            return self.factory.d.errback(WSReconnect('RECONNECT Requested'))
+            return self.factory.deferred.errback(WSReconnect('RECONNECT Requested'))
 
         if op == self.INVALIDATE_SESSION:
             print('Session invalidated')
@@ -111,12 +111,16 @@ class DiscordClientProtocol(WebSocketClientProtocol):
     def onClose(self, wasClean, code, reason):
         if self._ka_task is not None and self._ka_task.running:
             self._ka_task.stop()
-        print("WebSocket connection closed: {0} {1}".format(code, reason))
-        self.factory.d.errback(WSError("WebSocket connection closed: {0} {1}".format(code, reason)))
+
+        if wasClean:
+            self.factory.deferred.callback(None)
+        else:
+            self.factory.deferred.errback(WSError("WebSocket connection closed: {0} {1}".format(code, reason)))
 
 
 class DiscordClientFactory(WebSocketClientFactory):
     protocol = DiscordClientProtocol
+    deferred = defer.Deferred()
 
     def __init__(self,
                  url=None,
@@ -134,24 +138,3 @@ class DiscordClientFactory(WebSocketClientFactory):
         random.seed()
         self.setSessionParameters(url, None, None, useragent, headers, proxy)
         self.resetProtocolOptions()
-
-
-    def setGatewayUrl(self, url):
-        (isSecure, host, port, resource, path, params) = parseWsUrl(url or "ws://localhost")
-        self.url = url
-        self.isSecure = isSecure
-        self.host = host
-        self.port = port
-        self.resource = resource
-        self.path = path
-        self.params = params
-
-
-    def setAuthParameters(self, email=None, password=None, token=None):
-        if token is not None:
-            self.token = token
-        elif email is not None and password is not None:
-            self.email = email
-            self.password = password
-        else:
-            raise ValueError('You must specify at least token or an email and password combination.')
