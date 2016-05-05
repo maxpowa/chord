@@ -1,3 +1,5 @@
+
+# flake8: noqa
 __title__ = 'cord'
 __author__ = 'maxpowa'
 __license__ = 'MIT'
