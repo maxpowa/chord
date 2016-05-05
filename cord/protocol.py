@@ -111,6 +111,9 @@ class DiscordClientProtocol(WebSocketClientProtocol):
             return self.factory.deferred.errback(WSReconnect('RECONNECT Requested'))
 
         if op == self.INVALIDATE_SESSION:
+            self.sequence = 0
+            self.session_id = None
+            self.identify()
             self._log.debug('Session invalidated')
             return
 

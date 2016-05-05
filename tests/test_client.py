@@ -22,9 +22,8 @@ if __name__ == "__main__":
     moot = cli.login_and_connect('maxpowa1@gmail.com', 'notmypass')
 
     def done(ignored):
-        print('closing client')
         if moot.running:
             moot.stop()
 
-    cli.deferred.addCallback(done)
+    cli.deferred.addBoth(done)
     moot.run()

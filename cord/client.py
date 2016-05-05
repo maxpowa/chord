@@ -68,11 +68,6 @@ class Client(BaseClient):
         self.deferred = self.login(*args, **kwargs)
         self.deferred.addCallback(self.connect)
 
-        def handle_ws_error(failure):
-            failure.trap(WSError)
-            self.log.error(str(failure.value))
-
-        self.deferred.addErrback(handle_ws_error)
         self.deferred.addErrback(self.handle_error)
 
         return self.reactor
@@ -109,9 +104,11 @@ class Client(BaseClient):
     def set_protocol(self, protocol):
         self._protocol = protocol
         self._protocol.add_event_handler(self)
+        return defer.succeed(self._protocol)
 
     def handle_error(self, failure):
         self.log.error(str(failure.value))
+        failure.raiseException()
 
     def event(self, func):
         setattr(self, func.__name__, func)
