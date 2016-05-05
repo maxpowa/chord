@@ -154,7 +154,31 @@ def check_token(token, reactor=None):
 
     d = Agent(reactor).request(
         method='GET',
-        uri='https://discordapp.com/api/@me',
+        uri='https://discordapp.com/api/users/@me',
+        headers=Headers(headers),
+        bodyProducer=None)
+
+    def cbResponse(response):
+        if response.code != 200:
+            raise LoginError('Did not receive expected response from @me endpoint. ({response.code})'.format(response=response))
+        return token
+
+    d.addCallback(cbResponse)
+    return d
+
+
+def get_user_for_token(token, reactor=None):
+    if reactor is None:
+        from twisted.internet import reactor
+    headers = {
+        'authorization': [token],
+        'content-type': ['application/json'],
+        'User-Agent': [__user_agent__]
+    }
+
+    d = Agent(reactor).request(
+        method='GET',
+        uri='https://discordapp.com/api/users/@me',
         headers=Headers(headers),
         bodyProducer=None)
 
@@ -162,11 +186,11 @@ def check_token(token, reactor=None):
         if response.code != 200:
             raise LoginError('Did not receive expected response from @me endpoint. ({response.code})'.format(response=response))
         d = readBody(response)
-        d.addCallback(cbExtractUrl)
+        d.addCallback(cbParseJson)
         return d
 
-    def cbExtractUrl(body):
-        return json.loads(body)['url']
+    def cbParseJson(body):
+        return json.loads(body)
 
     d.addCallback(cbResponse)
     return d
