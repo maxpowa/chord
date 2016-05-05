@@ -29,11 +29,11 @@ if __name__ == "__main__":
         return create_client(gateway, token)
 
     def got_token(token):
-        d = get_gateway(reactor, token)
+        d = get_gateway(token, reactor=reactor)
         d.addCallback(got_gateway, token)
         return d
 
-    d = get_token(reactor, 'maxpowa1@gmail.com', 'notpass')
+    d = get_token('maxpowa1@gmail.com', 'notmy', reactor=reactor)
     d.addCallback(got_token)
     d.addErrback(error)
 

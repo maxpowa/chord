@@ -34,9 +34,9 @@ import json
 import sys
 import zlib
 
-from errors import WSError, WSReconnect
 
-from cord.util import get_gateway, get_token, __user_agent__
+from cord import __user_agent__
+from cord.errors import WSError, WSReconnect
 
 
 class EventHandler(object):

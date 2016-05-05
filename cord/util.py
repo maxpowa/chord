@@ -9,11 +9,8 @@ from twisted.logger import globalLogBeginner, textFileLogObserver, FilteringLogO
 from errors import GatewayError, HTTPError, LoginError
 
 import json
-import urllib
-from enum import Enum
 
-__version__ = "0.0.1"
-__user_agent__ = "cordlib/%s" % __version__
+from cord import __user_agent__
 
 
 class StringProducer(object):
@@ -54,25 +51,12 @@ def start_logging(level=LogLevel.info):
     globalLogBeginner.beginLoggingTo(observers)
 
 
-def get_token(reactor, email, password):
-    """Returns the access token for the given email and password
-    Parameters
-    -----------
-    reactor
-        The twisted reactor
-    email : str
-        The discord email
-    password : str
-        The discord password
-    Raises
-    ------
-    LoginError
-        When the login endpoint returns code 401
-    HTTPError
-        When the login endpoint does not return code 200
-    """
+def get_token(email, password, reactor=None):
+    if reactor is None:
+        from twisted.internet import reactor
     headers = {
-        'content-type': ['application/json']
+        'content-type': ['application/json'],
+        'User-Agent': [__user_agent__]
     }
     payload = {
         'email': email,
@@ -106,22 +90,13 @@ def get_token(reactor, email, password):
     return d
 
 
-def invalidate_token(reactor, token):
-    """Invalidates the given token (logs out)
-    Parameters
-    -----------
-    reactor
-        The twisted reactor
-    token : str
-        The access token
-    Raises
-    ------
-    HTTPError
-        When the endpoint does not return code 200
-    """
+def invalidate_token(token, reactor=None):
+    if reactor is None:
+        from twisted.internet import reactor
     headers = {
         'authorization': [token],
-        'content-type': ['application/json']
+        'content-type': ['application/json'],
+        'User-Agent': [__user_agent__]
     }
 
     d = Agent(reactor).request(
@@ -139,22 +114,13 @@ def invalidate_token(reactor, token):
     return d
 
 
-def get_gateway(reactor, token):
-    """Returns the gateway URL for connecting to the WebSocket.
-    Parameters
-    -----------
-    reactor
-        The twisted reactor
-    token : str
-        The discord authentication token.
-    Raises
-    ------
-    GatewayError
-        When the gateway does not return code 200
-    """
+def get_gateway(token, reactor=None):
+    if reactor is None:
+        from twisted.internet import reactor
     headers = {
         'authorization': [token],
-        'content-type': ['application/json']
+        'content-type': ['application/json'],
+        'User-Agent': [__user_agent__]
     }
 
     d = Agent(reactor).request(

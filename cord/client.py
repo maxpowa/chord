@@ -1,13 +1,11 @@
-import sys
-
-from twisted.internet import defer, ssl, reactor
+from twisted.internet import defer, ssl
 from twisted.internet.endpoints import SSL4ClientEndpoint, TCP4ClientEndpoint
 
 from twisted.logger import Logger
 
 from cord.protocol import DiscordClientFactory, EventHandler
-from cord import util
-from cord.errors import GatewayError, HTTPError, LoginError, WSReconnect, WSError
+from cord.util import get_token, get_gateway
+from cord.errors import LoginError, WSReconnect
 
 
 class BaseClient(EventHandler):
@@ -36,7 +34,7 @@ class Client(BaseClient):
     def fetch_token(self, email=None, password=None):
         if email is None or password is None:
             raise LoginError('Email and password must be specified to fetch token.')
-        d = util.get_token(self.reactor, email, password)
+        d = get_token(email, password, reactor=self.reactor)
         d.addCallback(self.set_token)
         return d
 
@@ -46,7 +44,7 @@ class Client(BaseClient):
 
     def fetch_gateway(self, token=None):
         self.token = self.token if token is None else token
-        d = util.get_gateway(self.reactor, self.token)
+        d = get_gateway(self.token, reactor=self.reactor)
         d.addCallback(self.set_gateway)
         return d
 

@@ -2,11 +2,10 @@ import sys
 
 from twisted.internet import reactor
 
-from cord.client import Client
-from cord.util import start_logging
-start_logging()
+import cord
+cord.util.start_logging()
 
-cli = Client(reactor=reactor)
+cli = cord.Client(reactor=reactor)
 
 @cli.event
 def on_ready(data):
@@ -19,7 +18,7 @@ def on_presence_update(data):
 
 
 if __name__ == "__main__":
-    moot = cli.login_and_connect('maxpowa1@gmail.com', 'notmypass')
+    moot = cli.login_and_connect('maxpowa1@gmail.com', 'notmy')
 
     def done(ignored):
         if moot.running:
