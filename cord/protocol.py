@@ -27,6 +27,7 @@ from autobahn.twisted.websocket import WebSocketClientProtocol, \
     WebSocketClientFactory
 
 from twisted.internet import defer, task
+from twisted.logger import Logger
 
 import random
 import json
@@ -35,15 +36,17 @@ import zlib
 
 from errors import WSError, WSReconnect
 
-from util import get_gateway, get_token, __user_agent__
+from cord.util import get_gateway, get_token, __user_agent__
 
 
 class EventHandler(object):
-    def handle_event(self, protocol, event, data):
+    def handle_event(self, event, data):
         raise NotImplementedError('handle_event not implemented in client')
 
 
 class DiscordClientProtocol(WebSocketClientProtocol):
+    _log = Logger()
+
     DISPATCH           = 0
     HEARTBEAT          = 1
     IDENTIFY           = 2
@@ -61,10 +64,10 @@ class DiscordClientProtocol(WebSocketClientProtocol):
     session_id = None
 
     def onConnect(self, response):
-        print("Connecting to Discord server: {0}".format(response.peer))
+        self._log.debug("Connecting to Discord server: {0}".format(response.peer))
 
     def onOpen(self):
-        print("Discord connection opened")
+        self._log.debug("Discord connection opened")
         self.identify()
 
     def identify(self):
@@ -92,7 +95,7 @@ class DiscordClientProtocol(WebSocketClientProtocol):
 
         payload = payload.decode('utf8')
 
-        print('RECV: {}'.format(payload))
+        self._log.debug('RECV: {payload}', payload=payload)
 
         msg = json.loads(payload)
 
@@ -103,16 +106,16 @@ class DiscordClientProtocol(WebSocketClientProtocol):
             self.sequence = msg.get('s')
 
         if op == self.RECONNECT:
-            print('Got RECONNECT')
+            self._log.debug('Got RECONNECT')
             self.dropConnection()
             return self.factory.deferred.errback(WSReconnect('RECONNECT Requested'))
 
         if op == self.INVALIDATE_SESSION:
-            print('Session invalidated')
+            self._log.debug('Session invalidated')
             return
 
         if op != self.DISPATCH:
-            print('Unknown op {}'.format(op))
+            self._log.debug('Unknown op {op}', op=op)
             return
 
         event = msg.get('t')
@@ -128,7 +131,7 @@ class DiscordClientProtocol(WebSocketClientProtocol):
             self._ka_task.start(interval)
 
         for handler in self._event_handlers:
-            handler.handle_event(self, event, msg)
+            handler.handle_event(event, msg)
 
     def keepAlive(self):
         self.sendMessage(json.dumps({
@@ -137,7 +140,7 @@ class DiscordClientProtocol(WebSocketClientProtocol):
         }))
 
     def sendMessage(self, *args, **kwargs):
-        print('SEND: {}'.format(args[0]))
+        self._log.debug('SEND: {payload}', payload=args[0])
         return WebSocketClientProtocol.sendMessage(self, *args, **kwargs)
 
     def onClose(self, wasClean, code, reason):

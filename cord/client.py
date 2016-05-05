@@ -1,17 +1,26 @@
 import sys
 
-from twisted.python import log
 from twisted.internet import defer, ssl, reactor
 from twisted.internet.endpoints import SSL4ClientEndpoint, TCP4ClientEndpoint
 
-log.startLogging(sys.stdout)
+from twisted.logger import Logger
 
 from cord.protocol import DiscordClientFactory, EventHandler
 from cord import util
 from cord.errors import GatewayError, HTTPError, LoginError, WSReconnect, WSError
 
-class Client(EventHandler):
 
+class BaseClient(EventHandler):
+    log = Logger()
+
+    def dispatch(self, event, *args, **kwargs):
+        raise NotImplementedError('dispatch not implemented')
+
+    def handle_event(self, event, data):
+        self.dispatch(event, data)
+
+
+class Client(BaseClient):
     def __init__(self, reactor=None, token=None):
         if reactor is None:
             from twisted.internet import reactor
@@ -27,7 +36,9 @@ class Client(EventHandler):
     def fetch_token(self, email=None, password=None):
         if email is None or password is None:
             raise LoginError('Email and password must be specified to fetch token.')
-        return util.get_token(self.reactor, email, password)
+        d = util.get_token(self.reactor, email, password)
+        d.addCallback(self.set_token)
+        return d
 
     def set_token(self, token):
         self.token = token
@@ -35,24 +46,31 @@ class Client(EventHandler):
 
     def fetch_gateway(self, token=None):
         self.token = self.token if token is None else token
-        return util.get_gateway(self.reactor, self.token)
+        d = util.get_gateway(self.reactor, self.token)
+        d.addCallback(self.set_gateway)
+        return d
 
     def set_gateway(self, gateway):
         self.gateway = gateway
         return defer.succeed(self.gateway)
 
-    def create(self, email, password, reactor=None):
+    def login(self, email, password, reactor=None):
         self.reactor = self.reactor if reactor is None else reactor
 
         self.deferred = self.fetch_token(email, password)
-        self.deferred.addCallback(self.set_token)
         self.deferred.addCallback(self.fetch_gateway)
-        self.deferred.addCallback(self.set_gateway)
+
+        self.deferred.addErrback(self.handle_error)
+
+        return self.deferred
+
+    def login_and_connect(self, *args, **kwargs):
+        self.deferred = self.login(*args, **kwargs)
         self.deferred.addCallback(self.connect)
 
         def handle_ws_error(failure):
             failure.trap(WSError)
-            print(str(failure.value))
+            self.log.error(str(failure.value))
 
         self.deferred.addErrback(handle_ws_error)
         self.deferred.addErrback(self.handle_error)
@@ -92,15 +110,19 @@ class Client(EventHandler):
         self._protocol = protocol
         self._protocol.add_event_handler(self)
 
-    def handle_event(self, protocol, event, data=None):
-        parser = 'parse_' + event.lower()
-
-        try:
-            func = getattr(self, parser)
-        except AttributeError:
-            print('Unhandled event {}'.format(event))
-        else:
-            func(data)
-
     def handle_error(self, failure):
-        print(str(failure.value))
+        self.log.error(str(failure.value))
+
+    def event(self, func):
+        setattr(self, func.__name__, func)
+        self.log.debug('{func.__name__} has successfully been registered as an event', func=func)
+        return func
+
+    def dispatch(self, event, *args, **kwargs):
+        self.log.debug('Dispatching event {}'.format(event))
+        handler = 'on_' + event.lower()
+
+        if hasattr(self, handler):
+            defer.maybeDeferred(getattr(self, handler), *args, **kwargs)
+        else:
+            self.log.error('Unhandled event {event}', event=event)

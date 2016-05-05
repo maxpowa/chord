@@ -1,7 +1,10 @@
 
+import sys
+
 from twisted.web.client import Agent, readBody, ResponseDone
 from twisted.internet import defer, protocol
 from twisted.web.http_headers import Headers
+from twisted.logger import globalLogBeginner, textFileLogObserver, FilteringLogObserver, LogLevelFilterPredicate, LogLevel
 
 from errors import GatewayError, HTTPError, LoginError
 
@@ -40,6 +43,15 @@ class SimpleReceiver(protocol.Protocol):
             self.d.callback(self.buf)
         else:
             self.d.errback(reason)
+
+
+def start_logging(level=LogLevel.info):
+    observers = []
+
+    predicate = LogLevelFilterPredicate(defaultLogLevel=level)
+    observers.append(FilteringLogObserver(observer=textFileLogObserver(sys.stdout), predicates=[predicate]))
+
+    globalLogBeginner.beginLoggingTo(observers)
 
 
 def get_token(reactor, email, password):
