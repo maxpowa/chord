@@ -15,7 +15,7 @@ def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
 setup(
-    name = "cord",
+    name = "chord",
     version = "0.0.1",
     author = "Max Gurela",
     author_email = "maxpowa@outlook.com",
@@ -23,7 +23,7 @@ setup(
     license = "MIT",
     keywords = "discord twisted websocket",
     url = "http://packages.python.org/an_example_pypi_project",
-    packages=[str('cord'), str('tests')],
+    packages=[str('chord'), str('tests')],
     long_description=read('README'),
     install_requires=requires,
     classifiers=[

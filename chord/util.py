@@ -10,7 +10,7 @@ from errors import GatewayError, HTTPError, LoginError
 
 import json
 
-from cord import __user_agent__
+from chord import __user_agent__
 
 
 class StringProducer(object):
@@ -132,6 +132,35 @@ def get_gateway(token, reactor=None):
     def cbResponse(response):
         if response.code != 200:
             raise GatewayError('Did not receive expected response from gateway endpoint. ({response.code})'.format(response=response))
+        d = readBody(response)
+        d.addCallback(cbExtractUrl)
+        return d
+
+    def cbExtractUrl(body):
+        return json.loads(body)['url']
+
+    d.addCallback(cbResponse)
+    return d
+
+
+def check_token(token, reactor=None):
+    if reactor is None:
+        from twisted.internet import reactor
+    headers = {
+        'authorization': [token],
+        'content-type': ['application/json'],
+        'User-Agent': [__user_agent__]
+    }
+
+    d = Agent(reactor).request(
+        method='GET',
+        uri='https://discordapp.com/api/@me',
+        headers=Headers(headers),
+        bodyProducer=None)
+
+    def cbResponse(response):
+        if response.code != 200:
+            raise LoginError('Did not receive expected response from @me endpoint. ({response.code})'.format(response=response))
         d = readBody(response)
         d.addCallback(cbExtractUrl)
         return d

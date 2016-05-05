@@ -3,9 +3,9 @@ from twisted.internet.endpoints import SSL4ClientEndpoint, TCP4ClientEndpoint
 
 from twisted.logger import Logger
 
-from cord.protocol import DiscordClientFactory, EventHandler
-from cord.util import get_token, get_gateway
-from cord.errors import LoginError, WSReconnect
+from chord.protocol import DiscordClientFactory, EventHandler
+from chord.util import get_token, get_gateway
+from chord.errors import LoginError, WSReconnect
 
 
 class BaseClient(EventHandler):

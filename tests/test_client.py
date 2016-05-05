@@ -2,10 +2,10 @@ import sys
 
 from twisted.internet import reactor
 
-import cord
-cord.util.start_logging()
+import chord
+chord.util.start_logging()
 
-cli = cord.Client(reactor=reactor)
+cli = chord.Client(reactor=reactor)
 
 @cli.event
 def on_ready(data):

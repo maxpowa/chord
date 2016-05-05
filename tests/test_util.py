@@ -5,9 +5,9 @@ from twisted.internet import defer, ssl, reactor
 
 log.startLogging(sys.stdout)
 
-from cord.protocol import DiscordClientFactory
-from cord.util import get_token, get_gateway
-from cord.errors import GatewayError, HTTPError, LoginError
+from chord.protocol import DiscordClientFactory
+from chord.util import get_token, get_gateway
+from chord.errors import GatewayError, HTTPError, LoginError
 
 
 if __name__ == "__main__":

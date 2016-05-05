@@ -35,8 +35,8 @@ import sys
 import zlib
 
 
-from cord import __user_agent__
-from cord.errors import WSError, WSReconnect
+from chord import __user_agent__
+from chord.errors import WSError, WSReconnect
 
 
 class EventHandler(object):
