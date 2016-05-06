@@ -22,7 +22,7 @@ if __name__ == "__main__":
             reactor.connectSSL(factory.host, factory.port, factory, ssl.ClientContextFactory())
         else:
             reactor.connectTCP(factory.host, factory.port, factory)
-        return factory.deferred
+        return factory.onConnectionLost
 
     def got_gateway(gateway, token):
         print(repr([gateway, token]))

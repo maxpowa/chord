@@ -15,6 +15,7 @@ class BaseClient(EventHandler):
         raise NotImplementedError('dispatch not implemented')
 
     def handle_event(self, event, data):
+        data = data.get('d', {})
         self.dispatch(event, data)
 
 
@@ -79,12 +80,14 @@ class Client(BaseClient):
             raise LoginError('Invalid token, try using fetch_token first.')
 
         self.factory = DiscordClientFactory(self.gateway, reactor=self.reactor)
+        self.onDisconnect = defer.Deferred()
+        self.factory.onConnectionLost = self.onDisconnect
         self.factory.token = self.token
 
         def handle_reconnect(failure):
             failure.trap(WSReconnect)
             return self._connect()
-        self.factory.deferred.addErrback(handle_reconnect)
+        self.factory.onConnectionLost.addErrback(handle_reconnect)
 
         if self.factory.isSecure:
             self.endpoint = SSL4ClientEndpoint(self.reactor,
@@ -97,7 +100,10 @@ class Client(BaseClient):
                                                self.factory.port)
         d = self.endpoint.connect(self.factory)
         d.addCallback(self.set_protocol)
-        return self.factory.deferred
+        return d
+
+    def disconnect(self, reason):
+        self._protocol.sendClose(code=1000, reason=reason)
 
     def set_protocol(self, protocol):
         self._protocol = protocol

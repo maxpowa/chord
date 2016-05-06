@@ -14,6 +14,10 @@ class HTTPError(CordError):
     pass
 
 
+class RateLimitError(HTTPError):
+    pass
+
+
 class WSError(CordError):
     pass
 

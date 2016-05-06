@@ -107,8 +107,8 @@ class DiscordClientProtocol(WebSocketClientProtocol):
 
         if op == self.RECONNECT:
             self._log.debug('Got RECONNECT')
-            self.dropConnection()
-            return self.factory.deferred.errback(WSReconnect('RECONNECT Requested'))
+            self.sendClose(code=1000, reason='RECONNECT requested')
+            return
 
         if op == self.INVALIDATE_SESSION:
             self.sequence = 0
@@ -150,20 +150,24 @@ class DiscordClientProtocol(WebSocketClientProtocol):
         if self._ka_task is not None and self._ka_task.running:
             self._ka_task.stop()
 
+        if code == 1000 and reason == 'RECONNECT requested':
+            return self.factory.onConnectionLost.errback(WSReconnect('Reconnecting to Discord'))
+
         if wasClean:
-            self.factory.deferred.callback(None)
+            self.factory.onConnectionLost.callback(self)
         else:
-            self.factory.deferred.errback(WSError("Discord connection closed: {0} {1}".format(code, reason)))
+            self.factory.onConnectionLost.errback(WSError("Discord connection closed: {0} {1}".format(code, reason)))
 
     def add_event_handler(self, handler):
         if not isinstance(handler, EventHandler):
             raise ValueError('Invalid event handler')
-        self._event_handlers.append(handler)
+        if handler not in self._event_handlers:
+            self._event_handlers.append(handler)
 
 
 class DiscordClientFactory(WebSocketClientFactory):
     protocol = DiscordClientProtocol
-    deferred = defer.Deferred()
+    onConnectionLost = None
 
     def __init__(self,
                  url=None,

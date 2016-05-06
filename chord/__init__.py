@@ -13,3 +13,4 @@ __user_agent__ = "chord (https://github.com/maxpowa/chord {0}) Python/{1[0]}.{1[
 from chord.client import Client
 from chord.errors import *
 from chord.util import start_logging, get_token, invalidate_token, get_gateway, check_token, get_user_for_token
+from chord.util import http_patch
