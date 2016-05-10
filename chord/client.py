@@ -20,6 +20,8 @@ class BaseClient(EventHandler):
 
 
 class Client(BaseClient):
+    endpoint = None
+
     def __init__(self, reactor=None, token=None):
         if reactor is None:
             from twisted.internet import reactor
@@ -50,8 +52,8 @@ class Client(BaseClient):
         return d
 
     def set_gateway(self, gateway):
-        self.gateway = gateway
-        return defer.succeed(self.gateway)
+        self._gateway = gateway
+        return defer.succeed(self._gateway)
 
     def login(self, email, password, reactor=None):
         self.reactor = self.reactor if reactor is None else reactor
@@ -72,14 +74,14 @@ class Client(BaseClient):
         return self.reactor
 
     def connect(self, gateway=None):
-        self.gateway = self.gateway if gateway is None else gateway
+        self._gateway = self._gateway if gateway is None else gateway
         return self._connect()
 
     def _connect(self):
         if self.token is None or self.token == '':
             raise LoginError('Invalid token, try using fetch_token first.')
 
-        self.factory = DiscordClientFactory(self.gateway, reactor=self.reactor)
+        self.factory = DiscordClientFactory(self._gateway, reactor=self.reactor)
         self.onDisconnect = defer.Deferred()
         self.factory.onConnectionLost = self.onDisconnect
         self.factory.token = self.token
@@ -89,21 +91,23 @@ class Client(BaseClient):
             return self._connect()
         self.factory.onConnectionLost.addErrback(handle_reconnect)
 
-        if self.factory.isSecure:
-            self.endpoint = SSL4ClientEndpoint(self.reactor,
-                                               self.factory.host,
-                                               self.factory.port,
-                                               ssl.ClientContextFactory())
-        else:
-            self.endpoint = TCP4ClientEndpoint(self.reactor,
-                                               self.factory.host,
-                                               self.factory.port)
+        if self.endpoint is None:
+            if self.factory.isSecure:
+                self.endpoint = SSL4ClientEndpoint(self.reactor,
+                                                   self.factory.host,
+                                                   self.factory.port,
+                                                   ssl.ClientContextFactory())
+            else:
+                self.endpoint = TCP4ClientEndpoint(self.reactor,
+                                                   self.factory.host,
+                                                   self.factory.port)
         d = self.endpoint.connect(self.factory)
         d.addCallback(self.set_protocol)
         return d
 
     def disconnect(self, reason):
         self._protocol.sendClose(code=1000, reason=unicode(reason))
+        self._protocol.dropConnection(abort=True)
 
     def set_protocol(self, protocol):
         self._protocol = protocol
@@ -126,4 +130,4 @@ class Client(BaseClient):
         if hasattr(self, handler):
             defer.maybeDeferred(getattr(self, handler), *args, **kwargs)
         else:
-            self.log.error('Unhandled event {event} ({name})', event=event, name=self.name)
+            self.log.error('Unhandled event {event} ({gateway}, {endpoint})', event=event, gateway=repr(self._gateway), endpoint=repr(self.endpoint))
