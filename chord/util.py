@@ -94,23 +94,31 @@ def invalidate_token(token, reactor=None):
     if reactor is None:
         from twisted.internet import reactor
     headers = {
-        'authorization': [token],
         'content-type': ['application/json'],
         'User-Agent': [__user_agent__]
     }
+    payload = {
+        'token': token
+    }
+    payload = json.dumps(payload)
 
     d = Agent(reactor).request(
-        method='GET',
+        method='POST',
         uri='https://discordapp.com/api/auth/logout',
         headers=Headers(headers),
-        bodyProducer=None)
+        bodyProducer=StringProducer(payload))
 
-    def cbResponse(response):
-        if response.code != 200:
-            raise HTTPError('Did not receive expected response from logout endpoint. ({response.code})'.format(response=response))
-        return readBody(response)
+    def cbResponse(body, response):
+        if response.code != 200 and response.code != 204:
+            raise HTTPError('Unexpected response from server ({response.code})'.format(response=response))
 
-    d.addCallback(cbResponse)
+    def cbWriteBody(response):
+        d = defer.Deferred()
+        response.deliverBody(SimpleReceiver(d))
+        d.addCallback(cbResponse, response)
+        return d
+
+    d.addCallback(cbWriteBody)
     return d
 
 

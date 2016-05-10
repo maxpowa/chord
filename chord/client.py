@@ -103,7 +103,7 @@ class Client(BaseClient):
         return d
 
     def disconnect(self, reason):
-        self._protocol.sendClose(code=1000, reason=reason)
+        self._protocol.sendClose(code=1000, reason=unicode(reason))
 
     def set_protocol(self, protocol):
         self._protocol = protocol
@@ -126,4 +126,4 @@ class Client(BaseClient):
         if hasattr(self, handler):
             defer.maybeDeferred(getattr(self, handler), *args, **kwargs)
         else:
-            self.log.error('Unhandled event {event}', event=event)
+            self.log.error('Unhandled event {event} ({name})', event=event, name=self.name)
