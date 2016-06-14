@@ -204,6 +204,41 @@ def get_user_for_token(token, reactor=None):
     return d
 
 
+def http_post(endpoint, token, data, reactor=None):
+    if reactor is None:
+        from twisted.internet import reactor
+    headers = {
+        'authorization': [token],
+        'content-type': ['application/json'],
+        'User-Agent': [__user_agent__]
+    }
+    payload = json.dumps(data)
+
+    d = Agent(reactor).request(
+        method='POST',
+        uri=endpoint,
+        headers=Headers(headers),
+        bodyProducer=StringProducer(payload))
+
+    def cbResponse(body, response):
+        if response.code == 501:
+            raise RateLimitError('Rate limited')
+        elif response.code == 400:
+            raise LoginError('Unable to peform operation')
+        elif response.code != 200 and response.code != 204:
+            raise HTTPError('Unexpected response from server ({response.code})'.format(response=response))
+        return body
+
+    def cbWriteBody(response):
+        d = defer.Deferred()
+        response.deliverBody(SimpleReceiver(d))
+        d.addCallback(cbResponse, response)
+        return d
+
+    d.addCallback(cbWriteBody)
+    return d
+
+
 def http_patch(endpoint, token, data, reactor=None):
     if reactor is None:
         from twisted.internet import reactor
