@@ -94,6 +94,7 @@ def invalidate_token(token, reactor=None):
     if reactor is None:
         from twisted.internet import reactor
     headers = {
+        'authorization': [token],
         'content-type': ['application/json'],
         'User-Agent': [__user_agent__]
     }
